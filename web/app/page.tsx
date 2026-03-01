@@ -1,4 +1,19 @@
-export default function Home() {
+import { supabase } from "../lib/supabaseClient";
+
+type Item = {
+  id: string;
+  url: string;
+  title: string | null;
+  source: string | null;
+  author: string | null;
+  category: string;
+  state: string;
+  one_liner: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export default async function Home() {
   const categories = [
     "Markets & Trading",
     "Business & Economy",
@@ -14,26 +29,13 @@ export default function Home() {
     "Ideas / Misc",
   ];
 
-  const items = [
-    {
-      title: "Example: RBI policy update — what it means",
-      source: "Financial Times",
-      author: "Jane Doe",
-      savedAt: "Today",
-      category: "Business & Economy",
-      oneLiner: "Quick take on the rate decision and implications for credit growth.",
-      state: "Unread",
-    },
-    {
-      title: "Example: Market structure microtrend (thread)",
-      source: "X",
-      author: "@someone",
-      savedAt: "Yesterday",
-      category: "Markets & Trading",
-      oneLiner: "A short breakdown of what changed in flows and why it matters.",
-      state: "Unread",
-    },
-  ];
+  // ✅ Fetch real data from Supabase
+  const { data, error } = await supabase
+    .from("items")
+    .select("id,url,title,source,author,category,state,one_liner,note,created_at")
+    .order("created_at", { ascending: false });
+
+  const items: Item[] = data ?? [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -92,7 +94,7 @@ export default function Home() {
               <div>
                 <div className="text-sm font-semibold">Inbox</div>
                 <div className="text-xs text-gray-500">
-                  Your saved items, organized by AI (editable later).
+                  Real items fetched from your database.
                 </div>
               </div>
 
@@ -110,31 +112,51 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Error box if DB call fails */}
+            {error ? (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Could not load items from Supabase. Error: {error.message}
+              </div>
+            ) : null}
+
             <div className="mt-4 space-y-3">
               {items.map((it) => (
-                <div
-                  key={it.title}
-                  className="rounded-xl border p-4 hover:bg-gray-50"
-                >
+                <div key={it.id} className="rounded-xl border p-4 hover:bg-gray-50">
                   <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                     <div>
-                      <div className="text-base font-semibold">{it.title}</div>
+                      <div className="text-base font-semibold">
+                        {it.title ?? it.url}
+                      </div>
                       <div className="mt-1 text-xs text-gray-500">
-                        {it.source} • {it.author} • Saved: {it.savedAt} •{" "}
+                        {(it.source ?? "Unknown source")} •{" "}
+                        {(it.author ?? "Unknown author")} • Saved:{" "}
+                        {new Date(it.created_at).toLocaleString()} •{" "}
                         <span className="rounded-full bg-gray-100 px-2 py-0.5">
                           {it.category}
                         </span>{" "}
                         • <span className="font-medium">{it.state}</span>
                       </div>
+
                       <div className="mt-2 text-sm text-gray-700">
-                        {it.oneLiner}
+                        {it.one_liner ?? "No 1-line summary yet."}
                       </div>
+
+                      {it.note ? (
+                        <div className="mt-2 text-xs text-gray-500">
+                          Note: {it.note}
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex flex-wrap gap-2 md:justify-end">
-                      <button className="rounded-lg border px-3 py-2 text-sm hover:bg-white">
+                      <a
+                        href={it.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-lg border px-3 py-2 text-sm hover:bg-white"
+                      >
                         Open
-                      </button>
+                      </a>
                       <button className="rounded-lg border px-3 py-2 text-sm hover:bg-white">
                         Summarize
                       </button>
@@ -148,11 +170,12 @@ export default function Home() {
                   </div>
                 </div>
               ))}
-            </div>
 
-            <div className="mt-6 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
-              Next: we’ll connect the database and implement “Add Link” via the
-              mobile Share flow (starting with a simple form).
+              {items.length === 0 && !error ? (
+                <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+                  No items yet. Add one in Supabase Table Editor to see it here.
+                </div>
+              ) : null}
             </div>
           </div>
         </section>
