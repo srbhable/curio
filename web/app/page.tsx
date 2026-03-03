@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import AddLinkButton from "./components/AddLinkButton";
 import { supabase } from "../lib/supabaseClient";
 
 type Item = {
@@ -13,44 +17,70 @@ type Item = {
   created_at: string;
 };
 
-export default async function Home() {
-  const categories = [
-    "Markets & Trading",
-    "Business & Economy",
-    "Tech & AI",
-    "Science",
-    "Books & Reading",
-    "Career & Skills",
-    "Health & Fitness",
-    "Parenting & Family",
-    "Psychology & Philosophy",
-    "Travel & Leisure",
-    "Money & Personal Finance",
-    "Ideas / Misc",
-  ];
+export default function Home() {
+  const categories = useMemo(
+    () => [
+      "Markets & Trading",
+      "Business & Economy",
+      "Tech & AI",
+      "Science",
+      "Books & Reading",
+      "Career & Skills",
+      "Health & Fitness",
+      "Parenting & Family",
+      "Psychology & Philosophy",
+      "Travel & Leisure",
+      "Money & Personal Finance",
+      "Ideas / Misc",
+    ],
+    []
+  );
 
-  // ✅ Fetch real data from Supabase
-  const { data, error } = await supabase
-    .from("items")
-    .select("id,url,title,source,author,category,state,one_liner,note,created_at")
-    .order("created_at", { ascending: false });
+  const [items, setItems] = useState<Item[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
 
-  const items: Item[] = data ?? [];
+  useEffect(() => {
+    const run = async () => {
+      setLoading(true);
+      setErrMsg(null);
+
+      const { data, error } = await supabase
+        .from("items")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Supabase fetch error:", error);
+        setItems([]);
+        setErrMsg(error.message);
+      } else {
+        setItems(((data ?? []) as Item[]));
+      }
+
+      setLoading(false);
+    };
+
+    run();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-black" />
+            <img
+              src="/icon-192.png"
+              alt="Curio Logo"
+              className="h-8 w-8 rounded-lg"
+            />
             <div>
-              <div className="text-lg font-semibold leading-5">LinkVault</div>
-              <div className="text-xs text-gray-500">Save • Organize • Summarize</div>
+              <div className="text-lg font-semibold leading-5">Curio</div>
+              <div className="text-xs text-gray-500">Save. Organize. Think.</div>
             </div>
           </div>
-          <button className="rounded-lg bg-black px-3 py-2 text-sm font-medium text-white">
-            + Add Link
-          </button>
+
+          <AddLinkButton />
         </div>
       </header>
 
@@ -112,21 +142,33 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Error box if DB call fails */}
-            {error ? (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                Could not load items from Supabase. Error: {error.message}
+            {/* Loading */}
+            {loading ? (
+              <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+                Loading…
               </div>
             ) : null}
 
+            {/* Error */}
+            {errMsg ? (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                Could not load items from Supabase. Error: {errMsg}
+              </div>
+            ) : null}
+
+            {/* Items */}
             <div className="mt-4 space-y-3">
               {items.map((it) => (
-                <div key={it.id} className="rounded-xl border p-4 hover:bg-gray-50">
+                <div
+                  key={it.id}
+                  className="rounded-xl border p-4 hover:bg-gray-50"
+                >
                   <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                     <div>
                       <div className="text-base font-semibold">
                         {it.title ?? it.url}
                       </div>
+
                       <div className="mt-1 text-xs text-gray-500">
                         {(it.source ?? "Unknown source")} •{" "}
                         {(it.author ?? "Unknown author")} • Saved:{" "}
@@ -157,12 +199,15 @@ export default async function Home() {
                       >
                         Open
                       </a>
+
                       <button className="rounded-lg border px-3 py-2 text-sm hover:bg-white">
                         Summarize
                       </button>
+
                       <button className="rounded-lg border px-3 py-2 text-sm hover:bg-white">
                         Mark Read
                       </button>
+
                       <button className="rounded-lg border px-3 py-2 text-sm hover:bg-white">
                         Archive
                       </button>
@@ -171,7 +216,7 @@ export default async function Home() {
                 </div>
               ))}
 
-              {items.length === 0 && !error ? (
+              {!loading && !errMsg && items.length === 0 ? (
                 <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
                   No items yet. Add one in Supabase Table Editor to see it here.
                 </div>
