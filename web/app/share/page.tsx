@@ -1,25 +1,91 @@
-export default async function SharePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ title?: string; text?: string; url?: string }>;
-}) {
-  const { title, text, url } = await searchParams;
+"use client";
 
-  // If url isn't provided, sometimes shared "text" contains a URL. We'll be strict for V1.
-  const sharedUrl = url ?? "";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { supabase } from "../lib/supabaseClient";
 
-  // Redirect to home with prefilled params so UI can show Add modal.
-  const qs = new URLSearchParams();
-  if (sharedUrl) qs.set("prefillUrl", sharedUrl);
-  if (title) qs.set("prefillTitle", title);
-  if (text) qs.set("prefillText", text);
+export default function SharePage() {
+  const params = useSearchParams();
+  const sharedUrl = useMemo(() => params.get("url") || "", [params]);
+
+  const [status, setStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
+  const [message, setMessage] = useState<string>("");
+
+  useEffect(() => {
+    const run = async () => {
+      if (!sharedUrl) {
+        setStatus("error");
+        setMessage("No URL received. Try sharing again.");
+        return;
+      }
+
+      setStatus("saving");
+      setMessage("Saving…");
+
+      const { error } = await supabase.from("items").insert([
+        {
+          url: sharedUrl,
+          category: "Uncategorized",
+          state: "UNREAD",
+        },
+      ]);
+
+      if (error) {
+        setStatus("error");
+        setMessage(error.message);
+        return;
+      }
+
+      setStatus("saved");
+      setMessage("Saved ✅ You can close this tab.");
+      // Optional: auto-close after 1.2s (works in some browsers)
+      setTimeout(() => window.close(), 1200);
+    };
+
+    run();
+  }, [sharedUrl]);
 
   return (
-    <html>
-      <head>
-        <meta httpEquiv="refresh" content={`0;url=/?${qs.toString()}`} />
-      </head>
-      <body />
-    </html>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-xl border bg-white p-5">
+        <div className="text-lg font-semibold">Curio</div>
+        <div className="mt-1 text-sm text-gray-600">
+          {status === "saving" && "Saving your link…"}
+          {status === "saved" && "Saved!"}
+          {status === "error" && "Could not save"}
+        </div>
+
+        <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm break-words">
+          {sharedUrl || "—"}
+        </div>
+
+        <div
+          className={`mt-4 rounded-lg p-3 text-sm ${
+            status === "error"
+              ? "bg-red-50 text-red-700 border border-red-200"
+              : "bg-green-50 text-green-700 border border-green-200"
+          }`}
+        >
+          {message}
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <a
+            href="/"
+            className="w-full rounded-lg border px-3 py-2 text-center text-sm hover:bg-gray-50"
+          >
+            Go to Inbox
+          </a>
+          <button
+            onClick={() => window.close()}
+            className="w-full rounded-lg bg-black px-3 py-2 text-sm text-white"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
