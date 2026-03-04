@@ -1,26 +1,34 @@
 // web/app/share-target/route.ts
 import { NextResponse } from "next/server";
 
-function pickUrl(formData: FormData) {
-  const url =
-    (formData.get("url") as string | null) ||
-    (formData.get("link") as string | null) ||
-    "";
+function extractUrlFromAnyField(formData: FormData) {
+  // 1) check common keys directly
+  const directKeys = ["url", "link", "sharedUrl", "href"];
+  for (const k of directKeys) {
+    const v = formData.get(k);
+    if (typeof v === "string" && v.trim().startsWith("http")) return v.trim();
+  }
 
-  if (url) return url.trim();
+  // 2) scan every field value and try to find a URL anywhere
+  const allValues: string[] = [];
+  for (const [, v] of formData.entries()) {
+    if (typeof v === "string" && v.trim()) allValues.push(v.trim());
+  }
 
-  // fallback: sometimes URL is inside "text"
-  const text = (formData.get("text") as string | null) || "";
-  const match = text.match(/https?:\/\/[^\s]+/i);
+  const joined = allValues.join("\n");
+  const match = joined.match(/https?:\/\/[^\s]+/i);
   return match?.[0]?.trim() || "";
 }
 
 export async function POST(req: Request) {
   const formData = await req.formData();
 
-  const url = pickUrl(formData);
-  const title = ((formData.get("title") as string | null) || "").trim();
-  const text = ((formData.get("text") as string | null) || "").trim();
+  // DEBUG: Log keys seen (check in Vercel -> Logs)
+  console.log("share-target keys:", Array.from(formData.keys()));
+
+  const url = extractUrlFromAnyField(formData);
+  const title = (formData.get("title") as string | null) || "";
+  const text = (formData.get("text") as string | null) || "";
 
   const redirectUrl = new URL("/share", req.url);
 

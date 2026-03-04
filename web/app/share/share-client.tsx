@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 
+function extractUrl(url: string, title: string, text: string) {
+  const direct = url?.trim();
+  if (direct) return direct;
+
+  const joined = `${title}\n${text}`;
+  const match = joined.match(/https?:\/\/[^\s]+/i);
+  return match?.[0]?.trim() || "";
+}
+
 export default function ShareClient({
   url,
   title,
@@ -12,12 +21,10 @@ export default function ShareClient({
   title: string;
   text: string;
 }) {
-  const sharedUrl = useMemo(() => url || "", [url]);
+  const sharedUrl = useMemo(() => extractUrl(url, title, text), [url, title, text]);
 
-  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle"
-  );
-  const [message, setMessage] = useState<string>("");
+  const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [message, setMessage] = useState("");
 
   useEffect(() => {
     const run = async () => {
@@ -31,13 +38,7 @@ export default function ShareClient({
       setMessage("Saving…");
 
       const { error } = await supabase.from("items").insert([
-        {
-          url: sharedUrl,
-          title: title || null,
-          note: text || null,
-          category: "Uncategorized",
-          state: "UNREAD",
-        },
+        { url: sharedUrl, category: "Uncategorized", state: "UNREAD" },
       ]);
 
       if (error) {
@@ -52,18 +53,16 @@ export default function ShareClient({
     };
 
     run();
-  }, [sharedUrl, title, text]);
+  }, [sharedUrl]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-xl border bg-white p-5">
         <div className="text-lg font-semibold">Curio</div>
-
         <div className="mt-1 text-sm text-gray-600">
           {status === "saving" && "Saving your link…"}
           {status === "saved" && "Saved!"}
           {status === "error" && "Could not save"}
-          {status === "idle" && "Ready"}
         </div>
 
         <div className="mt-4 rounded-lg bg-gray-50 p-3 text-sm break-words">

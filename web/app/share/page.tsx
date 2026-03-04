@@ -1,3 +1,4 @@
+// web/app/share/page.tsx
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -8,9 +9,11 @@ export default function SharePage({
 }: {
   searchParams: { url?: string; title?: string; text?: string };
 }) {
-  const url = searchParams?.url ?? "";
-  const title = searchParams?.title ?? "";
-  const text = searchParams?.text ?? "";
-
-  return <ShareClient url={url} title={title} text={text} />;
+  return (
+    <ShareClient
+      url={searchParams.url ?? ""}
+      title={searchParams.title ?? ""}
+      text={searchParams.text ?? ""}
+    />
+  );
 }
